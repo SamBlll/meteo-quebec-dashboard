@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Carte Météo - Pure Climatisation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    #map { height: 100vh; width: 100%; }
+    .legend {
+      background: white;
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 5px;
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
+    }
+    .filter {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="filter">
+    <label for="filter-date"><strong>Filter by date:</strong></label>
+    <select id="filter-date">
+      <option value="">All</option>
+    </select>
+  </div>
+
+  <div class="legend">
+    <strong>Legend</strong><br>
+    <span style="color:red">&#9679;</span> Heat Wave<br>
+    <span style="color:orange">&#9679;</span> Hot<br>
+    <span style="color:blue">&#9679;</span> None
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    const villes = [
+      { nom: 'Saint-Jérôme', lat: 45.78, lon: -74.00 },
+      { nom: 'Terrebonne', lat: 45.70, lon: -73.64 },
+      { nom: 'Repentigny', lat: 45.74, lon: -73.45 },
+      { nom: 'Charlemagne', lat: 45.72, lon: -73.48 },
+      { nom: 'L’Assomption', lat: 45.83, lon: -73.42 },
+      { nom: 'Laval', lat: 45.60, lon: -73.75 },
+      { nom: 'Mascouche', lat: 45.75, lon: -73.60 },
+      { nom: 'Mirabel', lat: 45.65, lon: -74.08 },
+      { nom: 'Saint-Eustache', lat: 45.57, lon: -73.90 },
+      { nom: 'Boisbriand', lat: 45.62, lon: -73.83 },
+      { nom: 'Rosemère', lat: 45.63, lon: -73.80 },
+      { nom: 'Deux-Montagnes', lat: 45.54, lon: -73.90 },
+      { nom: 'Sainte-Thérèse', lat: 45.64, lon: -73.84 },
+      { nom: 'Blainville', lat: 45.67, lon: -73.88 },
+      { nom: 'Lorraine', lat: 45.68, lon: -73.78 }
+    ];
+
+    const couleurs = {
+      'CANICULE': 'red',
+      'CHAUDE': 'orange',
+      '': 'blue'
+    };
+
+    const map = L.map('map').setView([45.67, -73.85], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 14,
+    }).addTo(map);
+
+    let allLayers = [];
+
+    fetch('https://script.google.com/macros/s/AKfycbwL_Vd9QFxMqgmSH-jrgAmGorbZHYadMRzw_J0bZG1f4SwYXyCIpEzilJ_7viwC9j6weg/exec')
+      .then(response => response.json())
+      .then(data => {
+        const dates = [...new Set(data.map(d => d.date))].sort();
+        const select = document.getElementById("filter-date");
+        dates.forEach(date => {
+          const opt = document.createElement("option");
+          opt.value = date;
+          opt.textContent = date;
+          select.appendChild(opt);
+        });
+
+        function updateMap(filterDate = '') {
+          allLayers.forEach(l => map.removeLayer(l));
+          allLayers = [];
+
+          villes.forEach(ville => {
+            const infos = data.filter(d => d.nom === ville.nom && (!filterDate || d.date === filterDate));
+            if (infos.length > 0) {
+              const alerte = infos[0].alerte;
+              const color = couleurs[alerte] || 'gray';
+              const square = L.rectangle([
+                [ville.lat + 0.05, ville.lon - 0.05],
+                [ville.lat - 0.05, ville.lon + 0.05]
+              ], {
+                color,
+                fillColor: color,
+                fillOpacity: 0.4,
+                weight: 1
+              }).addTo(map);
+              allLayers.push(square);
+              square.bindPopup(`<strong>${ville.nom}</strong><br>Date: ${infos[0].date}<br>Alerte: ${alerte || 'None'}`);
+            }
+          });
+        }
+
+        select.addEventListener("change", () => updateMap(select.value));
+        updateMap();
+      })
+      .catch(error => console.error('Erreur de chargement des données :', error));
+  </script>
+</body>
+</html>
