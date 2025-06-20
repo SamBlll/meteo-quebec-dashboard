@@ -39,32 +39,14 @@
 
   <div class="legend">
     <strong>Legend</strong><br>
-    <span style="color:red">&#9679;</span> Heat Wave<br>
-    <span style="color:orange">&#9679;</span> Hot<br>
-    <span style="color:blue">&#9679;</span> None
+    <div style="display: flex; align-items: center; margin-bottom: 4px;"><div style="width: 12px; height: 12px; background: red; margin-right: 5px;"></div> Heat Wave</div>
+    <div style="display: flex; align-items: center; margin-bottom: 4px;"><div style="width: 12px; height: 12px; background: orange; margin-right: 5px;"></div> Hot</div>
+    <div style="display: flex; align-items: center;"><div style="width: 12px; height: 12px; background: blue; margin-right: 5px;"></div> None</div>
   </div>
 
   <div id="map"></div>
 
   <script>
-    const villes = [
-      { nom: 'Saint-Jérôme', lat: 45.78, lon: -74.00 },
-      { nom: 'Terrebonne', lat: 45.70, lon: -73.64 },
-      { nom: 'Repentigny', lat: 45.74, lon: -73.45 },
-      { nom: 'Charlemagne', lat: 45.72, lon: -73.48 },
-      { nom: 'L’Assomption', lat: 45.83, lon: -73.42 },
-      { nom: 'Laval', lat: 45.60, lon: -73.75 },
-      { nom: 'Mascouche', lat: 45.75, lon: -73.60 },
-      { nom: 'Mirabel', lat: 45.65, lon: -74.08 },
-      { nom: 'Saint-Eustache', lat: 45.57, lon: -73.90 },
-      { nom: 'Boisbriand', lat: 45.62, lon: -73.83 },
-      { nom: 'Rosemère', lat: 45.63, lon: -73.80 },
-      { nom: 'Deux-Montagnes', lat: 45.54, lon: -73.90 },
-      { nom: 'Sainte-Thérèse', lat: 45.64, lon: -73.84 },
-      { nom: 'Blainville', lat: 45.67, lon: -73.88 },
-      { nom: 'Lorraine', lat: 45.68, lon: -73.78 }
-    ];
-
     const couleurs = {
       'CANICULE': 'red',
       'CHAUDE': 'orange',
@@ -90,32 +72,37 @@
           select.appendChild(opt);
         });
 
-        function updateMap(filterDate = '') {
-          allLayers.forEach(l => map.removeLayer(l));
-          allLayers = [];
+        fetch('https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson') // À remplacer par un fichier GEOJSON des villes du Québec
+          .then(r => r.json())
+          .then(geojson => {
+            function updateMap(filterDate = '') {
+              allLayers.forEach(l => map.removeLayer(l));
+              allLayers = [];
 
-          villes.forEach(ville => {
-            const infos = data.filter(d => d.nom === ville.nom && (!filterDate || d.date === filterDate));
-            if (infos.length > 0) {
-              const alerte = infos[0].alerte;
-              const color = couleurs[alerte] || 'gray';
-              const square = L.rectangle([
-                [ville.lat + 0.05, ville.lon - 0.05],
-                [ville.lat - 0.05, ville.lon + 0.05]
-              ], {
-                color,
-                fillColor: color,
-                fillOpacity: 0.4,
-                weight: 1
+              const layer = L.geoJSON(geojson, {
+                style: feature => {
+                  const info = data.find(d => d.nom === feature.properties.name && (!filterDate || d.date === filterDate));
+                  const color = info ? couleurs[info.alerte] : 'gray';
+                  return {
+                    color,
+                    fillColor: color,
+                    fillOpacity: 0.5,
+                    weight: 1
+                  };
+                },
+                onEachFeature: (feature, layer) => {
+                  const info = data.find(d => d.nom === feature.properties.name && (!filterDate || d.date === filterDate));
+                  if (info) {
+                    layer.bindPopup(`<strong>${feature.properties.name}</strong><br>Date: ${info.date}<br>Alerte: ${info.alerte || 'None'}`);
+                  }
+                }
               }).addTo(map);
-              allLayers.push(square);
-              square.bindPopup(`<strong>${ville.nom}</strong><br>Date: ${infos[0].date}<br>Alerte: ${alerte || 'None'}`);
+              allLayers.push(layer);
             }
-          });
-        }
 
-        select.addEventListener("change", () => updateMap(select.value));
-        updateMap();
+            select.addEventListener("change", () => updateMap(select.value));
+            updateMap();
+          });
       })
       .catch(error => console.error('Erreur de chargement des données :', error));
   </script>
